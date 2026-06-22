@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sam's Watchlist</title>
+<script>
+  // ↓ Tras publicar tu Web App de Apps Script, pega la URL aquí
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4DAXWFL-wuJK9bfmzZVFeAt5snbfSQWFLhxpjtXA4ZPDCy-5e3tLa1rUHbEuGHA1h-g/exec';
+  const TMDB_API_KEY    = '35a3238fef47d11ae7ce0cb52f454765';
+  const TMDB_IMG        = 'https://image.tmdb.org/t/p/w342';
+  const TMDB_IMG_LG     = 'https://image.tmdb.org/t/p/w500';
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0b0d12;
+  --s1:#131720;
+  --s2:#1a2030;
+  --s3:#212840;
+  --bor:rgba(255,255,255,.07);
+  --bor2:rgba(255,255,255,.13);
+  --acc:#14b8a6;
+  --acc2:#f97316;
+  --txt:#dde4ef;
+  --mu:#7889a0;
+  --sw:240px;
+  --r:10px;
+}
+
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100dvh;font-size:14px}
+
+/* ─ Sidebar ─ */
+#sidebar{width:var(--sw);min-height:100dvh;background:var(--s1);border-right:1px solid var(--bor);display:flex;flex-direction:column;position:sticky;top:0;height:100dvh;overflow-y:auto;flex-shrink:0;z-index:100}
+.sb-logo{padding:22px 18px 14px;border-bottom:1px solid var(--bor)}
+.sb-logo h2{font-size:16px;font-weight:700;letter-spacing:-.4px}
+.sb-logo h2 em{color:var(--acc);font-style:normal}
+.sb-logo p{font-size:11px;color:var(--mu);margin-top:3px}
+#sb-updated{font-size:10px;color:var(--mu);padding:8px 18px;border-bottom:1px solid var(--bor)}
+.sb-label{padding:14px 18px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--mu)}
+.pf-btn{display:flex;align-items:center;gap:9px;padding:8px 18px;width:100%;background:none;border:none;color:var(--txt);cursor:pointer;font-size:13px;text-align:left;transition:background .15s,color .15s;position:relative}
+.pf-btn:hover{background:var(--s2);color:#fff}
+.pf-btn.active{background:rgba(20,184,166,.1);color:var(--acc);font-weight:600}
+.pf-btn.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc);border-radius:0 2px 2px 0}
+.pf-cnt{margin-left:auto;font-size:10px;background:var(--s2);color:var(--mu);border-radius:20px;padding:1px 6px;min-width:20px;text-align:center}
+.pf-btn.active .pf-cnt{background:rgba(20,184,166,.2);color:var(--acc)}
+.pf-ico{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;color:#fff;letter-spacing:-.5px}
+
+/* ─ Main ─ */
+#main{flex:1;display:flex;flex-direction:column;min-height:100dvh}
+#topbar{padding:16px 24px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:rgba(11,13,18,.96);backdrop-filter:blur(10px);z-index:50}
+#topbar h1{font-size:16px;font-weight:700;white-space:nowrap}
+#topbar h1 span{color:var(--acc)}
+#search{margin-left:auto;padding:7px 12px 7px 32px;background:var(--s1);border:1px solid var(--bor);border-radius:8px;color:var(--txt);font-size:13px;width:190px;outline:none;transition:border-color .2s,width .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237889a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center}
+#search:focus{border-color:var(--acc);width:240px}
+#sort{padding:7px 10px;background:var(--s1);border:1px solid var(--bor);border-radius:8px;color:var(--txt);font-size:13px;cursor:pointer;outline:none}
+#sort:focus{border-color:var(--acc)}
+
+/* stats */
+#stats{padding:10px 24px;border-bottom:1px solid var(--bor);display:flex;gap:20px;font-size:12px;color:var(--mu)}
+.st strong{color:var(--txt);font-size:13px}
+
+/* gallery */
+#wrap{flex:1;padding:20px 24px}
+#gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:14px}
+#nores{display:none;text-align:center;padding:70px 20px;color:var(--mu)}
+#nores svg{margin:0 auto 14px;display:block;opacity:.25}
+
+/* card */
+.card{background:var(--s1);border-radius:var(--r);overflow:hidden;cursor:pointer;border:1px solid var(--bor);display:flex;flex-direction:column;transition:transform .18s,box-shadow .18s,border-color .18s;position:relative}
+.card:hover{transform:translateY(-3px);box-shadow:0 14px 36px rgba(0,0,0,.55);border-color:rgba(20,184,166,.22)}
+.poster{width:100%;aspect-ratio:2/3;object-fit:cover;background:var(--s2);display:block}
+.no-img{width:100%;aspect-ratio:2/3;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mu);text-align:center;padding:10px;line-height:1.4}
+.card-body{padding:9px;flex:1;display:flex;flex-direction:column;gap:3px}
+.card-title{font-size:12px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-meta{font-size:10px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-ratings{display:flex;gap:5px;margin-top:auto;padding-top:5px;flex-wrap:wrap}
+.rb{font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px}
+.rb-lb{background:rgba(20,184,166,.15);color:var(--acc)}
+.rb-tmdb{background:rgba(249,115,22,.12);color:#fb8c50}
+
+/* platform dots on poster */
+.pdots{position:absolute;top:5px;right:5px;display:flex;flex-direction:column;gap:3px}
+.pdot{width:17px;height:17px;border-radius:4px;font-size:8px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+
+/* modal */
+#ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(5px);z-index:1000;align-items:center;justify-content:center;padding:20px}
+#ov.open{display:flex}
+#modal{background:var(--s1);border-radius:16px;max-width:680px;width:100%;max-height:90dvh;overflow-y:auto;border:1px solid var(--bor2);position:relative;display:flex;flex-direction:column}
+#mcl{position:absolute;top:12px;right:12px;background:var(--s2);border:1px solid var(--bor);border-radius:50%;width:30px;height:30px;cursor:pointer;color:var(--txt);font-size:14px;display:flex;align-items:center;justify-content:center;z-index:5}
+.mc{display:flex;gap:0}
+#mp{width:200px;flex-shrink:0;object-fit:cover;border-radius:16px 0 0 16px}
+#mi{padding:26px 22px;display:flex;flex-direction:column;gap:10px;flex:1}
+#mt{font-size:19px;font-weight:700;line-height:1.2}
+.mi-meta{font-size:12px;color:var(--mu)}
+#ms{font-size:13px;line-height:1.65;color:#b8c8d8}
+.m-rats{display:flex;gap:8px;flex-wrap:wrap}
+.m-rat{padding:5px 10px;border-radius:7px;font-size:13px;font-weight:700}
+#mpl h4{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin-bottom:6px}
+.ptag{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin:2px;color:#fff}
+
+/* loader */
+#loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:70px 20px;color:var(--mu)}
+.spin{width:34px;height:34px;border:3px solid var(--bor);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* mobile */
+#hbg{display:none;background:none;border:none;color:var(--txt);cursor:pointer;font-size:20px;padding:3px}
+@media(max-width:768px){
+  body{flex-direction:column}
+  #sidebar{width:100%;min-height:auto;height:auto;position:relative;overflow:hidden;max-height:58px;transition:max-height .3s}
+  #sidebar.open{max-height:100dvh;overflow-y:auto}
+  #hbg{display:flex}
+  #topbar{flex-wrap:wrap}
+  #search{width:100%;margin:0;order:3}
+  .mc{flex-direction:column}
+  #mp{width:100%;height:240px;border-radius:16px 16px 0 0}
+  #gallery{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+}
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="sb-logo">
+    <h2>🎬 Sam's <em>Watchlist</em></h2>
+    <p>Letterboxd × TMDb · España</p>
+  </div>
+  <div id="sb-updated"></div>
+  <div class="sb-label">General</div>
+  <button class="pf-btn active" data-pf="all" onclick="filtrar('all',this)">
+    <span class="pf-ico" style="background:#334">★</span>
+    Toda la lista <span class="pf-cnt" id="cnt-all">—</span>
+  </button>
+  <div class="sb-label">Plataformas</div>
+  <button class="pf-btn" data-pf="netflix" onclick="filtrar('netflix',this)">
+    <span class="pf-ico" style="background:#e50914">NF</span>
+    Netflix <span class="pf-cnt" id="cnt-netflix">—</span>
+  </button>
+  <button class="pf-btn" data-pf="prime" onclick="filtrar('prime',this)">
+    <span class="pf-ico" style="background:#00a8e1">PR</span>
+    Prime Video <span class="pf-cnt" id="cnt-prime">—</span>
+  </button>
+  <button class="pf-btn" data-pf="max" onclick="filtrar('max',this)">
+    <span class="pf-ico" style="background:#8d00b5">MX</span>
+    Max <span class="pf-cnt" id="cnt-max">—</span>
+  </button>
+  <button class="pf-btn" data-pf="filmin" onclick="filtrar('filmin',this)">
+    <span class="pf-ico" style="background:#e84c4c">FM</span>
+    Filmin <span class="pf-cnt" id="cnt-filmin">—</span>
+  </button>
+  <button class="pf-btn" data-pf="movistar" onclick="filtrar('movistar',this)">
+    <span class="pf-ico" style="background:#009cde">MV</span>
+    Movistar+ <span class="pf-cnt" id="cnt-movistar">—</span>
+  </button>
+  <button class="pf-btn" data-pf="disney" onclick="filtrar('disney',this)">
+    <span class="pf-ico" style="background:#1c3a85">D+</span>
+    Disney+ <span class="pf-cnt" id="cnt-disney">—</span>
+  </button>
+  <div class="sb-label">Otras</div>
+  <button class="pf-btn" data-pf="otras" onclick="filtrar('otras',this)">
+    <span class="pf-ico" style="background:#445">+</span>
+    Otras plat. <span class="pf-cnt" id="cnt-otras">—</span>
+  </button>
+  <button class="pf-btn" data-pf="none" onclick="filtrar('none',this)">
+    <span class="pf-ico" style="background:#333">–</span>
+    Sin streaming <span class="pf-cnt" id="cnt-none">—</span>
+  </button>
+</aside>
+
+<main id="main">
+  <div id="topbar">
+    <button id="hbg" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+    <h1>Sam's Watchlist — <span id="pf-name">Toda la lista</span></h1>
+    <select id="sort" onchange="render()">
+      <option value="orig">Orden original</option>
+      <option value="title_az">Título A→Z</option>
+      <option value="title_za">Título Z→A</option>
+      <option value="year_desc">Más recientes</option>
+      <option value="year_asc">Más antiguas</option>
+      <option value="lb_desc">Nota LB ↓</option>
+      <option value="tmdb_desc">Nota TMDb ↓</option>
+    </select>
+    <input id="search" type="search" placeholder="Buscar…" oninput="render()">
+  </div>
+
+  <div id="stats">
+    <div class="st"><strong id="st-show">—</strong> mostrando</div>
+    <div class="st"><strong id="st-total">—</strong> en watchlist</div>
+  </div>
+
+  <div id="wrap">
+    <div id="loading"><div class="spin"></div>Cargando datos…</div>
+    <div id="nores">
+      <svg width="44" height="44" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p>Sin resultados</p>
+    </div>
+    <div id="gallery"></div>
+  </div>
+</main>
+
+<!-- Modal -->
+<div id="ov" onclick="closeModal(event)">
+  <div id="modal">
+    <button id="mcl" onclick="closeModal(null,1)">✕</button>
+    <div class="mc">
+      <img id="mp" alt="">
+      <div id="mi">
+        <div id="mt"></div>
+        <div class="mi-meta" id="md"></div>
+        <div class="mi-meta" id="my"></div>
+        <div class="m-rats">
+          <div class="m-rat rb-lb" id="mlb"></div>
+          <div class="m-rat rb-tmdb" id="mtmdb"></div>
+        </div>
+        <div id="ms"></div>
+        <div id="mpl"><h4>Disponible en España</h4><div id="mptags"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Platform config ───────────────────────────────────────────
+const PF = {
+  netflix:  { label:'Netflix',       color:'#e50914', short:'NF' },
+  prime:    { label:'Prime Video',   color:'#00a8e1', short:'PR' },
+  max:      { label:'Max',           color:'#8d00b5', short:'MX' },
+  filmin:   { label:'Filmin',        color:'#e84c4c', short:'FM' },
+  movistar: { label:'Movistar Plus+',color:'#009cde', short:'MV' },
+  disney:   { label:'Disney+',       color:'#1c3a85', short:'D+' },
+};
+
+// ── Películas reales de tu watchlist (demo sin poster/tmdb aún) ─
+// Cuando publiques el Apps Script, estos datos vendrán de la API.
+const DEMO = [
+  {titulo:`The End of the Tour`,año:"2015",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:0},
+  {titulo:`Pearl`,año:"2022",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:1},
+  {titulo:`MaXXXine`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:2},
+  {titulo:`Close`,año:"2022",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:3},
+  {titulo:`Above the Rim`,año:"1994",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:4},
+  {titulo:`Hoop Dreams`,año:"1994",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:5},
+  {titulo:`20th Century Women`,año:"2016",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:6},
+  {titulo:`Columbus`,año:"2017",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:7},
+  {titulo:`Érase una vez en Canarias`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:8},
+  {titulo:`Killing Crabs`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:9},
+  {titulo:`Jokes & Cigarettes`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:10},
+  {titulo:`Chinas`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:11},
+  {titulo:`The Godfather Part II`,año:"1974",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:12},
+  {titulo:`The Taste of Things`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:13},
+  {titulo:`The Sea Inside`,año:"2004",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:14},
+  {titulo:`20,000 Species of Bees`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:15},
+  {titulo:`The Beast`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:16},
+  {titulo:`There's Still Tomorrow`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:17},
+  {titulo:`Léon: The Professional`,año:"1994",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:18},
+  {titulo:`Blue Giant`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:19},
+  {titulo:`Dìdi (弟弟)`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:20},
+  {titulo:`Longlegs`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:21},
+  {titulo:`The Count of Monte Cristo`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:22},
+  {titulo:`Hounds`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:23},
+  {titulo:`Problemista`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:24},
+  {titulo:`Salve Maria`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:25},
+  {titulo:`Saturn Return`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:26},
+  {titulo:`Midwives`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:27},
+  {titulo:`Sisterhood`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:28},
+  {titulo:`All We Imagine as Light`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:29},
+  {titulo:`A Real Pain`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:30},
+  {titulo:`The Seed of the Sacred Fig`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:31},
+  {titulo:`I'm Still Here`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:32},
+  {titulo:`Daniela Forever`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:33},
+  {titulo:`Blue Chips`,año:"1994",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:34},
+  {titulo:`Like Father, Like Son`,año:"2013",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:35},
+  {titulo:`The Smashing Machine`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:36},
+  {titulo:`Highest 2 Lowest`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:37},
+  {titulo:`Eddington`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:38},
+  {titulo:`The Phoenician Scheme`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:39},
+  {titulo:`The French Dispatch of the Liberty, Kansas Evening Sun`,año:"2021",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:40},
+  {titulo:`Isle of Dogs`,año:"2018",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:41},
+  {titulo:`The Royal Tenenbaums`,año:"2001",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:42},
+  {titulo:`Friendship`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:43},
+  {titulo:`Bob Trevino Likes It`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:44},
+  {titulo:`The Roses`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:45},
+  {titulo:`Oh, Hi!`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:46},
+  {titulo:`Romería`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:47},
+  {titulo:`28 Days Later`,año:"2002",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:48},
+  {titulo:`Temps mort: la resurrecció de Charles Thomas`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:49},
+  {titulo:`Blue Sun Palace`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:50},
+  {titulo:`A Big Bold Beautiful Journey`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:51},
+  {titulo:`In the Mood for Love`,año:"2000",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:52},
+  {titulo:`Mulholland Drive`,año:"2001",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:53},
+  {titulo:`Memories of Murder`,año:"2003",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:54},
+  {titulo:`Nowhere`,año:"1997",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:55},
+  {titulo:`La Haine`,año:"1995",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:56},
+  {titulo:`Girls Will Be Girls`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:57},
+  {titulo:`Cannibal`,año:"2013",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:58},
+  {titulo:`The Sweet East`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:59},
+  {titulo:`Corpus Christi`,año:"2019",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:60},
+  {titulo:`At Eternity's Gate`,año:"2018",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:61},
+  {titulo:`This Is England`,año:"2006",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:62},
+  {titulo:`First Cow`,año:"2019",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:63},
+  {titulo:`Lean on Pete`,año:"2017",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:64},
+  {titulo:`Bird`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:65},
+  {titulo:`The Humans`,año:"2021",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:66},
+  {titulo:`La Cocina`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:67},
+  {titulo:`Broker`,año:"2022",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:68},
+  {titulo:`The Killing of a Sacred Deer`,año:"2017",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:69},
+  {titulo:`Al Margen`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:70},
+  {titulo:`Parthenope`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:71},
+  {titulo:`Under the Silver Lake`,año:"2018",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:72},
+  {titulo:`Die My Love`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:73},
+  {titulo:`Flores para Antonio`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:74},
+  {titulo:`Wake Up Dead Man`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:75},
+  {titulo:`Blue Moon`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:76},
+  {titulo:`Dreams`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:77},
+  {titulo:`The Long Walk`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:78},
+  {titulo:`River Returns`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:79},
+  {titulo:`The Dinner`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:80},
+  {titulo:`The Life of Chuck`,año:"2024",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:81},
+  {titulo:`Eternity`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:82},
+  {titulo:`Sentimental Value`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:83},
+  {titulo:`Father Mother Sister Brother`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:84},
+  {titulo:`Hamnet`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:85},
+  {titulo:`If I Had Legs I'd Kick You`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:86},
+  {titulo:`Arco`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:87},
+  {titulo:`Train Dreams`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:88},
+  {titulo:`It Was Just an Accident`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:89},
+  {titulo:`The Breaking Ice`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:90},
+  {titulo:`Memoirs of a Geisha`,año:"2005",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:91},
+  {titulo:`Fury`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:92},
+  {titulo:`Dream Scenario`,año:"2023",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:93},
+  {titulo:`Beef`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:94},
+  {titulo:`Mirai`,año:"2018",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:95},
+  {titulo:`The Handmaiden`,año:"2016",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:96},
+  {titulo:`The Drama`,año:"2026",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:97},
+  {titulo:`The Super Mario Galaxy Movie`,año:"2026",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:98},
+  {titulo:`Obsession`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:99},
+  {titulo:`I Love Boosters`,año:"2026",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:100},
+  {titulo:`Yo no moriré de amor`,año:"2026",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:101},
+  {titulo:`All That's Left of You`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:102},
+  {titulo:`Runner`,año:"2026",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:103},
+  {titulo:`Mile End Kicks`,año:"2025",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:104},
+  {titulo:`Elite Squad`,año:"2007",nota_letterboxd:"",netflix:"",prime_video:"",max:"",filmin:"",movistar:"",disney:"",otras:"",poster_path:"",rating_tmdb:"",director:"",sinopsis:"",_i:105}
+];
+
+// ── State ─────────────────────────────────────────────────────
+let movies = [], filtered = [], currentPf = 'all';
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('TU_URL')) {
+    // Usar datos demo + enriquecer con TMDb en tiempo real
+    movies = DEMO.map((m,i)=>({...m,_i:i}));
+    updateCounts();
+    render();
+    document.getElementById('loading').style.display='none';
+    document.getElementById('sb-updated').textContent='Demo — enriqueciendo con TMDb…';
+    enriquecerConTMDb();
+    return;
+  }
+  try {
+    const r = await fetch(APPS_SCRIPT_URL);
+    const j = await r.json();
+    movies = (j.movies||[]).map((m,i)=>({...m,_i:i}));
+    if(j.ultima_actualizacion){
+      const d=new Date(j.ultima_actualizacion);
+      document.getElementById('sb-updated').textContent='Act. '+d.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    }
+    updateCounts();
+    render();
+    document.getElementById('loading').style.display='none';
+  } catch(e) {
+    console.warn(e);
+    movies = DEMO.map((m,i)=>({...m,_i:i}));
+    updateCounts();
+    render();
+    document.getElementById('loading').style.display='none';
+  }
+}
+
+// ── Count movies per platform ─────────────────────────────────
+function updateCounts() {
+  const cnt = {all:movies.length,netflix:0,prime:0,max:0,filmin:0,movistar:0,disney:0,otras:0,none:0};
+  movies.forEach(m=>{
+    const hasSub = m.netflix||m.prime_video||m.max||m.filmin||m.movistar||m.disney;
+    const hasOtra = (m.otras||'').trim() && !(m.otras||'').startsWith('No encontrado') && !(m.otras||'').startsWith('Error');
+    if(!hasSub && !hasOtra) cnt.none++;
+    if(m.netflix)    cnt.netflix++;
+    if(m.prime_video)cnt.prime++;
+    if(m.max)        cnt.max++;
+    if(m.filmin)     cnt.filmin++;
+    if(m.movistar)   cnt.movistar++;
+    if(m.disney)     cnt.disney++;
+    if(hasOtra)      cnt.otras++;
+  });
+  Object.keys(cnt).forEach(k=>{
+    const el=document.getElementById('cnt-'+k);
+    if(el) el.textContent=cnt[k];
+  });
+  document.getElementById('st-total').textContent=movies.length;
+}
+
+// ── Filter ────────────────────────────────────────────────────
+function filtrar(pf, btn) {
+  currentPf=pf;
+  document.querySelectorAll('.pf-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const labels={all:'Toda la lista',netflix:'Netflix',prime:'Prime Video',max:'Max',filmin:'Filmin',movistar:'Movistar+',disney:'Disney+',otras:'Otras plataformas',none:'Sin streaming'};
+  document.getElementById('pf-name').textContent=labels[pf]||pf;
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────
+function render() {
+  const q   = document.getElementById('search').value.toLowerCase().trim();
+  const srt = document.getElementById('sort').value;
+
+  let list = movies.filter(m=>{
+    // Platform filter
+    if(currentPf==='all')  return true;
+    if(currentPf==='none'){
+      const hasSub=m.netflix||m.prime_video||m.max||m.filmin||m.movistar||m.disney;
+      const hasOtra=(m.otras||'').trim()&&!(m.otras||'').startsWith('No')&&!(m.otras||'').startsWith('Error');
+      return !hasSub&&!hasOtra;
+    }
+    if(currentPf==='otras'){
+      return (m.otras||'').trim()&&!(m.otras||'').startsWith('No')&&!(m.otras||'').startsWith('Error');
+    }
+    const map={netflix:'netflix',prime:'prime_video',max:'max',filmin:'filmin',movistar:'movistar',disney:'disney'};
+    return !!m[map[currentPf]];
+  }).filter(m=>{
+    if(!q) return true;
+    return (m.titulo||'').toLowerCase().includes(q)||(m.director||'').toLowerCase().includes(q)||(m.año||'').includes(q);
+  });
+
+  // Sort
+  if(srt==='orig')       list.sort((a,b)=>a._i-b._i);
+  if(srt==='title_az')   list.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||''));
+  if(srt==='title_za')   list.sort((a,b)=>(b.titulo||'').localeCompare(a.titulo||''));
+  if(srt==='year_desc')  list.sort((a,b)=>parseInt(b.año||0)-parseInt(a.año||0));
+  if(srt==='year_asc')   list.sort((a,b)=>parseInt(a.año||0)-parseInt(b.año||0));
+  if(srt==='lb_desc')    list.sort((a,b)=>parseFloat(b.nota_letterboxd||0)-parseFloat(a.nota_letterboxd||0));
+  if(srt==='tmdb_desc')  list.sort((a,b)=>parseFloat(b.rating_tmdb||0)-parseFloat(a.rating_tmdb||0));
+
+  filtered=list;
+  document.getElementById('st-show').textContent=list.length;
+  document.getElementById('nores').style.display=list.length?'none':'block';
+  document.getElementById('gallery').innerHTML=list.map((m,i)=>card(m,i)).join('');
+}
+
+// ── Card HTML ─────────────────────────────────────────────────
+const PFMAP={netflix:{c:'#e50914',s:'NF'},prime_video:{c:'#00a8e1',s:'PR'},max:{c:'#8d00b5',s:'MX'},filmin:{c:'#e84c4c',s:'FM'},movistar:{c:'#009cde',s:'MV'},disney:{c:'#1c3a85',s:'D+'}};
+
+function card(m,i){
+  const src=m.poster_path?`${TMDB_IMG}${m.poster_path}`:'';
+  const poster=src
+    ?`<img class="poster" src="${src}" alt="${esc(m.titulo)}" loading="lazy" onerror="this.outerHTML='<div class=no-img>${esc(m.titulo)}</div>'">`
+    :`<div class="no-img">${esc(m.titulo)}</div>`;
+
+  const dots=Object.entries(PFMAP).filter(([k])=>m[k]).slice(0,3).map(([,v])=>
+    `<div class="pdot" style="background:${v.c}">${v.s}</div>`).join('');
+
+  const lbB=m.nota_letterboxd?`<span class="rb rb-lb">★${m.nota_letterboxd}</span>`:'';
+  const tmdbB=m.rating_tmdb?`<span class="rb rb-tmdb">⬡${parseFloat(m.rating_tmdb).toFixed(1)}</span>`:'';
+
+  return`<div class="card" onclick="openModal(${i})" tabindex="0" onkeydown="if(event.key==='Enter')openModal(${i})">
+    ${poster}
+    ${dots?`<div class="pdots">${dots}</div>`:''}
+    <div class="card-body">
+      <div class="card-title">${esc(m.titulo)}</div>
+      <div class="card-meta">${esc(m.año)}${m.director?' · '+esc(m.director.split(',')[0]):''}</div>
+      <div class="card-ratings">${lbB}${tmdbB}</div>
+    </div>
+  </div>`;
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+function openModal(i){
+  const m=filtered[i];
+  if(!m) return;
+  document.getElementById('mt').textContent=m.titulo||'';
+  document.getElementById('md').textContent=m.director?'Dir. '+m.director:'';
+  document.getElementById('my').textContent=m.año?'Año '+m.año:'';
+  document.getElementById('ms').textContent=m.sinopsis||'';
+
+  const lb=document.getElementById('mlb'),tm=document.getElementById('mtmdb');
+  lb.textContent=m.nota_letterboxd?'★ '+m.nota_letterboxd+' Letterboxd':'';
+  tm.textContent=m.rating_tmdb?'⬡ '+parseFloat(m.rating_tmdb).toFixed(1)+' TMDb':'';
+  lb.style.display=m.nota_letterboxd?'block':'none';
+  tm.style.display=m.rating_tmdb?'block':'none';
+
+  const poster=m.poster_path?`${TMDB_IMG_LG}${m.poster_path}`:'';
+  const mp=document.getElementById('mp');
+  mp.src=poster; mp.style.display=poster?'block':'none';
+
+  // Platforms
+  const tags=[];
+  if(m.netflix)    tags.push({l:'Netflix',c:'#e50914'});
+  if(m.prime_video)tags.push({l:'Prime Video',c:'#00a8e1'});
+  if(m.max)        tags.push({l:'Max',c:'#8d00b5'});
+  if(m.filmin)     tags.push({l:'Filmin',c:'#e84c4c'});
+  if(m.movistar)   tags.push({l:'Movistar Plus+',c:'#009cde'});
+  if(m.disney)     tags.push({l:'Disney+',c:'#1c3a85'});
+  if(m.otras&&!m.otras.startsWith('No')&&!m.otras.startsWith('Error')){
+    m.otras.split('|').forEach(o=>{if(o.trim())tags.push({l:o.trim(),c:'#445'});});
+  }
+
+  const mpl=document.getElementById('mpl');
+  document.getElementById('mptags').innerHTML=tags.map(t=>`<span class="ptag" style="background:${t.c}">${esc(t.l)}</span>`).join('');
+  mpl.style.display=tags.length?'block':'none';
+
+  document.getElementById('ov').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(e,force){
+  if(!force&&e&&e.target!==document.getElementById('ov')) return;
+  document.getElementById('ov').classList.remove('open');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal(null,1);});
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+
+// ── Enriquecer datos demo con TMDb API (desde el navegador) ──
+async function enriquecerConTMDb() {
+  const batchSize = 5;
+  for (let i = 0; i < movies.length; i++) {
+    const m = movies[i];
+    if (m.poster_path && m.rating_tmdb) continue; // ya tiene datos
+    try {
+      // Buscar película
+      const q = encodeURIComponent(m.titulo);
+      const yr = m.año ? '&year=' + m.año : '';
+      const sr = await fetch(
+        `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${q}${yr}&language=es-ES`
+      ).then(r => r.json());
+
+      if (!sr.results || !sr.results.length) continue;
+      const hit = sr.results[0];
+
+      movies[i].poster_path  = hit.poster_path  || m.poster_path;
+      movies[i].rating_tmdb  = hit.vote_average ? hit.vote_average.toFixed(1) : m.rating_tmdb;
+      movies[i].sinopsis     = m.sinopsis || (hit.overview || '').substring(0, 250);
+      movies[i].tmdb_id      = hit.id;
+
+      // Director
+      if (!m.director) {
+        const cr = await fetch(
+          `https://api.themoviedb.org/3/movie/${hit.id}/credits?api_key=${TMDB_API_KEY}&language=es-ES`
+        ).then(r => r.json());
+        const dirs = (cr.crew || []).filter(p => p.job === 'Director').map(p => p.name);
+        movies[i].director = dirs.join(', ');
+      }
+
+      // Streaming ES
+      const wp = await fetch(
+        `https://api.themoviedb.org/3/movie/${hit.id}/watch/providers?api_key=${TMDB_API_KEY}`
+      ).then(r => r.json());
+      const es = wp.results && wp.results['ES'];
+      if (es) {
+        const fl = es.flatrate || [];
+        fl.forEach(p => {
+          const n = p.provider_name.toLowerCase();
+          if (n.includes('netflix'))           movies[i].netflix    = '✓';
+          else if (n.includes('amazon')||n.includes('prime')) movies[i].prime_video = '✓';
+          else if (n.includes('max')||n.includes('hbo'))      movies[i].max = '✓';
+          else if (n.includes('filmin'))       movies[i].filmin     = '✓';
+          else if (n.includes('movistar'))     movies[i].movistar   = '✓';
+          else if (n.includes('disney'))       movies[i].disney     = '✓';
+          else {
+            movies[i].otras = movies[i].otras
+              ? movies[i].otras + ' | ' + p.provider_name
+              : p.provider_name;
+          }
+        });
+      }
+
+      // Re-render cada batch para que se vea el progreso
+      if ((i + 1) % batchSize === 0) {
+        updateCounts();
+        render();
+        await new Promise(r => setTimeout(r, 400));
+      }
+
+    } catch(e) {
+      console.warn('TMDb error for', m.titulo, e);
+    }
+  }
+
+  // Render final
+  updateCounts();
+  render();
+  document.getElementById('sb-updated').textContent =
+    'Datos en vivo · TMDb · ' + new Date().toLocaleDateString('es-ES', {day:'2-digit',month:'short'});
+}
+
+init();
+</script>
+</body>
+</html>
