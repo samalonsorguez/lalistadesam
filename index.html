@@ -515,6 +515,21 @@ async function init() {
   enrichWithTMDb();
 }
 
+
+// ── IDs correctos forzados para películas con títulos ambiguos ──
+const FORCED_TMDB = {
+  "The Beast":           1107218,  // La Bête (2023) - Bertrand Bonello
+  "Midwives":            931055,   // Sages-femmes (2023) - francesa
+  "The Taste of Things": 890393,   // La Passion de Dodin Bouffant (2023)
+  "Like Father, Like Son": 220160, // Soshite chichi ni naru (2013) - Koreeda
+  "The Dinner":          1433680,  // La Cena (2025) española
+  "Fury":                1224668,  // La Furia (2025) española
+  "Runner":              1477049,  // Corredora (2026) española
+  "HLM Pussy":           1001472,  // HLM Pussy
+  "Segundo Premio":    977548,   // Segundo Premio (española)
+  // Temps mort no tiene entrada en TMDb aún
+};
+
 // ── Enriquecer con TMDb ───────────────────────────────────────
 async function enrichWithTMDb() {
   for (let i = 0; i < movies.length; i++) {
@@ -523,10 +538,24 @@ async function enrichWithTMDb() {
     try {
       const q  = encodeURIComponent(m.titulo);
       const yr = m.año ? '&year=' + m.año : '';
-      const sr = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}${yr}&language=es-ES`).then(r=>r.json());
+      // Usar ID forzado si existe para evitar resultados incorrectos
+      let hit;
+      const forcedId = FORCED_TMDB[m.titulo];
+      if (forcedId) {
+        const fd = await fetch(`https://api.themoviedb.org/3/movie/${forcedId}?api_key=${TMDB_KEY}&language=es-ES`).then(r=>r.json());
+        hit = fd.id ? fd : null;
+      } else {
+        const sr = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}${yr}&language=es-ES`).then(r=>r.json());
+        // Si no encuentra con año, intentar sin año
+        if ((!sr.results || !sr.results.length) && yr) {
+          const sr2 = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}&language=es-ES`).then(r=>r.json());
+          hit = sr2.results && sr2.results.length ? sr2.results[0] : null;
+        } else {
+          hit = sr.results && sr.results.length ? sr.results[0] : null;
+        }
+      }
 
-      if (!sr.results || !sr.results.length) { movies[i]._done = true; continue; }
-      const hit = sr.results[0];
+      if (!hit) { movies[i]._done = true; continue; }
 
       movies[i].poster_path = hit.poster_path || '';
       movies[i].rating_tmdb = hit.vote_average ? parseFloat(hit.vote_average).toFixed(1) : '';
